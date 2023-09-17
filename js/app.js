@@ -48,7 +48,7 @@ function showProducts(products, category) {
 showCategories(); 
 
 let selectedProductInfo = '';
-let selectedProductPrice = 0
+let selectedProductPrice = 0;
 
 function showDescription(product) {
   const description = document.getElementById('right');
@@ -150,22 +150,20 @@ function addInfoOrder() {
     const orderData = {
       productName: selectedProductInfo.name,
       productPrice: selectedProductPrice,
-      name: name,
-      city: city,
-      post: post,
-      payment: payment,
-      quantity: quantity,
-      comment: comment,
-      totalPrice: totalPrice.toFixed(2)
+      customerName: name,
+      customerCity: city,
+      customerPost: post,
+      customerPayment: payment,
+      orderQuantity: quantity,
+      orderComment: comment,
+      orderTotalPrice: totalPrice.toFixed(2),
+      orderTime: new Date().getTime() // Устанавливаем уникальное время заказа
     };
 
-    // Преобразуйте объект в строку JSON.
-    const orderDataJSON = JSON.stringify(orderData);
-    
-    const orderKey = `orderData`;
-
     // Сохранение данных заказа в Local Storage.
-    localStorage.setItem(orderKey, orderDataJSON);
+    let orders = JSON.parse(localStorage.getItem('orders')) || [];
+    orders.push(orderData);
+    localStorage.setItem('orders', JSON.stringify(orders));
 
     const resultContainer = document.querySelector('.result-container');
     resultContainer.style.display = 'block';
@@ -195,28 +193,89 @@ function showUserOrder(orderTime, totalPrice){
   parentElement.appendChild(item);
 }
 
-function userOrder(){
-  const orderKey = 'orderData'; // Замените этим ключем, если вы использовали другой ключ.
-  const orderDataJSON = localStorage.getItem(orderKey);
+function deleteOrder(index) {
+  const orders = JSON.parse(localStorage.getItem('orders'));
 
-  if(orderDataJSON){
-    const orderData = JSON.parse(orderDataJSON);
+  if (orders && index >= 0 && index < orders.length) {
+    orders.splice(index, 1);
+    localStorage.setItem('orders', JSON.stringify(orders));
 
-    const orderTime = new Date(parseInt(orderKey.split('_')[1]));
-    const totalPrice = parseFloat(orderData.totalPrice).toFixed(2);
-    showUserOrder(orderTime,totalPrice);
+    // Удаляем элемент заказа из DOM
+    const orderItems = document.querySelectorAll('.order-item');
+    if (orderItems.length > index) {
+      orderItems[index].remove();
+    }
   }
 }
 
-document.getElementById('left').addEventListener('click', event => {
-  document.querySelector('.result-container').innerHTML ='';
-  if (event.target.nodeName === 'DIV') {
-    const categoryKey = event.target.getAttribute('data-category');
-    const categoryProducts = categories[categoryKey].products;
-    showProducts(categoryProducts, categoryKey);
-  }
-});
+function userOrder() {
+  const orders = JSON.parse(localStorage.getItem('orders'));
 
+  if (orders && orders.length > 0) {
+    const left = document.getElementById('left');
+    left.innerHTML = '';
+
+    for (let i = 0; i < orders.length; i++) {
+      const order = orders[i];
+      const orderTime = new Date(order.orderTime);
+      const totalPrice = parseFloat(order.orderTotalPrice).toFixed(2);
+
+      const item = document.createElement('div');
+      item.classList.add('order-item'); // Добавляем класс для каждого элемента заказа
+      item.setAttribute('data-order-index', i); // Устанавливаем атрибут для хранения индекса заказа
+
+      const orderInfo = document.createElement('p');
+      orderInfo.textContent = `Время заказа: ${orderTime.toLocaleString()}, Цена: $${totalPrice}`;
+
+      const deleteButton = document.createElement('button');
+      deleteButton.textContent = 'Удалить';
+      deleteButton.setAttribute('data-order-index', i); // Устанавливаем атрибут для хранения индекса заказа
+      deleteButton.addEventListener('click', () => {
+        deleteOrder(i);
+      });
+
+      item.appendChild(orderInfo);
+      item.appendChild(deleteButton);
+
+      left.appendChild(item);
+    }
+  }
+}
+
+function displayOrderInfo(order) {
+  const right = document.getElementById('right');
+  right.innerHTML = '';
+
+  const orderTime = new Date(order.orderTime);
+  const totalPrice = parseFloat(order.orderTotalPrice).toFixed(2);
+
+  const orderInfo = document.createElement('div');
+  orderInfo.innerHTML = `
+    <h2>Информация о заказе:</h2>
+    <p>Время заказа: ${orderTime.toLocaleString()}</p>
+    <p>Имя: ${order.customerName}</p>
+    <p>Город: ${order.customerCity}</p>
+    <p>Почтовый индекс: ${order.customerPost}</p>
+    <p>Способ оплаты: ${order.customerPayment}</p>
+    <p>Количество: ${order.orderQuantity}</p>
+    <p>Комментарий: ${order.orderComment}</p>
+    <p>К оплате: $${totalPrice}</p>
+  `;
+
+  right.appendChild(orderInfo);
+}
+
+document.getElementById('left').addEventListener('click', event => {
+  if (event.target.classList.contains('order-item')) {
+    const orderIndex = event.target.getAttribute('data-order-index');
+    const orders = JSON.parse(localStorage.getItem('orders'));
+
+    if (orders && orderIndex >= 0 && orderIndex < orders.length) {
+      const selectedOrder = orders[orderIndex];
+      displayOrderInfo(selectedOrder);
+    }
+  }
+});;
 
 document.getElementById('center').addEventListener('click', event => {
   if (event.target.nodeName === 'DIV') {
@@ -228,11 +287,20 @@ document.getElementById('center').addEventListener('click', event => {
   }
 });
 
-document.querySelector('.save').addEventListener('click', addInfoOrder);
+document.querySelector('.save').addEventListener('click', () => {
+  addInfoOrder();// Перезагружаем список заказов после сохранения
+});
 
-document.querySelector('.btn_order').addEventListener('click',()=>{
+document.querySelector('.btn_order').addEventListener('click', () => {
   const left = document.getElementById('left');
   left.innerHTML = '';
+  const center = document.getElementById('center');
+  center.innerHTML = '';
+      
+  const right = document.getElementById('right');
+  right.innerHTML = '';
 
-  userOrder()
-})
+  document.querySelector('.result-container').innerHTML ='';
+
+  userOrder();
+});
